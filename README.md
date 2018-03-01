@@ -1,3 +1,7 @@
+## getaddrinfo failed in only-IPv6 network on iOS9
+
+to be continued...
+
 ## Welcome to GitHub Pages
 
 You can use the [editor on GitHub](https://github.com/LoveULin/AlwaysAndForever/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
