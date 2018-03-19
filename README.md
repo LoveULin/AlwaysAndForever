@@ -1,8 +1,7 @@
 
 # about block-chain
-```
 ## tokens
-
+```
 PoW：
 比特币
 莱特币
