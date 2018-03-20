@@ -1,5 +1,68 @@
 
 # about block-chain
+
+## SHAMap in ripple
+
+### SHAMap 介绍
+SHAMap是一个Merkle tree(http://en.wikipedia.org/wiki/Merkle_tree)，也是一个最多16个子节点的radix tree(http://en.wikipedia.org/wiki/Radix_tree).
+
+一个给定的SHAMap永远只存储以下三种类型的数据之一：
+1. 带有元数据的交易
+2. 不带有元数据的交易
+3. 账户状态
+
+所以一个特定的SHAMap上的所有叶子节点都会有一个统一的类型，内部节点（非叶子节点）除了它下面节点的hash值以外不携带任何数据。
+
+### SHAMap 类型
+创建和使用SHAMap有两种不同的方式：
+1. 可变的SHAMap
+2. 不可变的SHAMap
+
+这两种方式的区别并不是那种经典的C++中的不可变意味着不改变的语义。一个不可变的SHAMap上的节点包含着不可变的节点。同时，一旦在一个不可变的SHAMap上找到
+了一个节点，那么在这个SHAMap的整个生命周期中该节点一定会被保持在该SHAMap上。所以，有些反直觉得，一个不可变的SHAMap可能由于新节点地加入而增长，但是一
+个不可变的SHAMap永远不会变小（直到它被销毁时完全消失）。一个节点一旦被加入进不可变SHAMap，也永远不会改变它在内存中的位置。所以不可变SHAMap中的节点可
+以使用原始指针来操作（如果你足够小心的话）。
+
+这种设计的其中一个后果就是一个SHAMap永远不可能被“裁剪”。没有任何办法可以识别那些在SHAMap中不需要了的可以被移除的节点。一旦一个节点被加入了内存中的
+SHAMap，这个节点将在整个SHAMap的生命周期内始终保持在内存中。
+
+大多数SHAMap是不可变的，它们不会修改或移除它们所包含的节点。
+
+一个需要可变SHAMap的例子是当我们希望向LCL去实施交易时。为此我们生成一个状态树的可变快照，然后开始将交易实施于它。由于快照时可变的，改变快照中的节点不
+会影响其他SHAMap中的节点。
+
+一个使用不可变ledger的的例子是当有一个open的ledger时，一些代码想要去查询该ledger的状态。这时我们不想去改变SHAMap的状态，所以我们使用了一个不可变的
+快照。
+
+### SHAMap 创建
+一个SHAMap通常不是凭空创建的。一旦一个初始的SHAMap被构造了出来，之后的SHAMap通常基于初始SHAMap调用snapShot(bool isMutable)被创建出来。这个新创建出来的SHAMap基于传入的标记拥有着所需的特性（可变或不可变）。
+
+### SHAMap 线程安全性
+### 遍历一个SHAMap
+### 晚到达的节点
+就像我们之前提到的一样，SHAMap（即使时不可变的）可能会增长。如果一个SHAMap正在查询某个节点然后运行到了一个空点，那么SHAMap将查看该节点是否存在，或时
+还没有成为该map的一部分。这个操作是在SHAMap::fetchNodeExternalNT()函数中进行的。“NT”在这里表示不会抛出异常。
+
+函数fetchNodeExternalNT()会经历三个阶段：
+1. 通过调用getCache()来尝试找到TreeNodeCache中丢失节点的位置。TreeNodeCache是不可变的SHAMapTreeNodes的cache，不可变的SHAMapTreeNodes被所有
+SHAMap共享。
+
+任何一个不可变的SHAMapTreeNode都有一个为0的序列号。当一个可变的SHAMap被创建出来时，它的SHAMapTreeNodes被给予了一个非0的序列号。所以断言
+assert (ret->getSeq() == 0)简单地确认了TreeNodeCache确实给了我们一个不可变的节点。
+
+2. 如果这个节点不在TreeNodeCache中，我们尝试从数据库保存的历史数据中找到它。调用fetch(hash)为我们完成了这项工作。
+
+3. 最后，如果ledgerSeq_不为0，且我们没有在历史数据中找到该节点，我们会调用一个MissingNodeHandler。
+
+非0的ledgerSeq_表示这个SHAMap是一个属于某个指定（非0）序列号的历史ledger的完整map。所以，如果所有预期的数据都始终存在，MissingNodeHandler永远不应
+该被执行。
+
+同时，由于我们知道这个SHAMap并不能完全表示该ledger中的数据，我们将该SHAMap的序列号置为0。
+
+如果阶段1返回了节点，那么我们就已经知道了这个节点是不可变的。然而如果任何一个阶段2执行成功，我们需要将返回的节点转变为一个不可变的节点。这通过在try块
+中调用make_shared<SHAMapTreeNode>来实现。这些代码写在了try块里是因为fetchNodeExternalNT方法承诺了不会抛出异常。我们不想由于make_shared调用构造函
+数时抛出异常而破坏我们的承诺。
+
 ## tokens
 ```
 PoW：
@@ -18,7 +81,6 @@ PeerCoin
 ```
 
 ## translation of ripple consensus protocol
-```
 前言：
 当一些为解决拜占庭问题的一致性算法出现时，尤其是属于分布式支付系统的那些，许多都遭受了要求对全网所有节点的一致性进行同步所导致的高延迟问题；为了解这
 个问题，我们提出了一个新奇的一致性算法，利用更大网络中一部分子网的集体信任特性，来绕过上述需求（要求全网所有节点的一致性）；我们展示出事实上这些子网
@@ -39,13 +101,16 @@ PeerCoin
 可用性是一个略微更加抽象的问题，我们经常将它定义为分布式支付系统的“实用性”，但实际上常常将它简化为系统的延迟性。一个既能保证正确又能确保一致性，但是
 处理一笔交易要花一年时间的（只是举个例子）分布式系统，显然是一个无法生存下去的支付系统。可用性的其他方面可能还包括确保正确性和一致性过程中所需要的算
 力水平，或终端用户在网络中避免被欺骗所需的技术熟练程度。
-```
+
+to be continued...
 
 ## getaddrinfo failed in only-IPv6 network on iOS9
 
-我们知道，即使是在only-IPv6的环境里，IPv4依然是被支持的。但是在最近的工作中，发现IPv4的一些网络服务在iOS9的only-IPv6环境中工作得并不正常。结合网络上的一些信息和分析后，定位了问题出在**getaddrinfo**这个**libc接口**上。
+我们知道，即使是在only-IPv6的环境里，IPv4依然是被支持的。但是在最近的工作中，发现IPv4的一些网络服务在iOS9的only-IPv6环境中工作得并不正常。结合网络
+上的一些信息和分析后，定位了问题出在**getaddrinfo**这个**libc接口**上。
 
-当我们像如下这样使用getaddrinfo接口，去将一个域名解析成IP地址时，如果返回值ret等于0，就表示我们得到了对应的解析结果，可以在后续的流程里去使用对应的IP地址和端口号了。
+当我们像如下这样使用getaddrinfo接口，去将一个域名解析成IP地址时，如果返回值ret等于0，就表示我们得到了对应的解析结果，可以在后续的流程里去使用对应的
+IP地址和端口号了。
 ```
 struct addrinfo *h(nullptr);
 struct addrinfo hints;
@@ -58,7 +123,8 @@ const auto ret(getaddrinfo("www.baidu.com", "80", &hints, &h));
 if (0 == ret) {
   ...
 ```
-这样的使用方式在其他平台是没有任何问题的；但是在iOS9的only-IPv6环境中，如果一个解析结果的协议族为**IPv4**，那么出参h中的ai_addr字段的端口号部分会被**置成0！！**（此时返回值ret确实也等于0）所以我们有了如下的修改方案：
+这样的使用方式在其他平台是没有任何问题的；但是在iOS9的only-IPv6环境中，如果一个解析结果的协议族为**IPv4**，那么出参h中的ai_addr字段的端口号部分会被
+**置成0！！**（此时返回值ret确实也等于0）所以我们有了如下的修改方案：
 ```
 const auto getaddrinfo(name_to_resolve, port_string, &hints, &h);
 if (0 == ret) {
@@ -74,7 +140,8 @@ if (0 == ret) {
     }
     ...
 ```
-另外一种解决方案是：在调用getaddrinfo时，第二个参数service直接使用对应服务的名字，如"http", "ssh"等等，但是实际使用时，多数的那些非知名的端口是没有这样的服务的名字的。因此，前述修改方案应该是一种更为通用且更好的方式。
+另外一种解决方案是：在调用getaddrinfo时，第二个参数service直接使用对应服务的名字，如"http", "ssh"等等，但是实际使用时，多数的那些非知名的端口是有
+这样的服务的名字的。因此，前述修改方案应该是一种更为通用且更好的方式。
 
 to be continued...
 
