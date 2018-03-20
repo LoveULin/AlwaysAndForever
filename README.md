@@ -4,7 +4,8 @@
 ## SHAMap in ripple
 
 ### SHAMap 介绍
-SHAMap是一个Merkle tree(http://en.wikipedia.org/wiki/Merkle_tree)，也是一个最多16个子节点的radix tree(http://en.wikipedia.org/wiki/Radix_tree).
+SHAMap是一个Merkle tree(http://en.wikipedia.org/wiki/Merkle_tree)，
+也是一个最多16个子节点的radix tree(http://en.wikipedia.org/wiki/Radix_tree).
 
 一个给定的SHAMap永远只存储以下三种类型的数据之一：
 1. 带有元数据的交易
@@ -81,6 +82,7 @@ PeerCoin
 ```
 
 ## translation of ripple consensus protocol
+```
 前言：
 当一些为解决拜占庭问题的一致性算法出现时，尤其是属于分布式支付系统的那些，许多都遭受了要求对全网所有节点的一致性进行同步所导致的高延迟问题；为了解这
 个问题，我们提出了一个新奇的一致性算法，利用更大网络中一部分子网的集体信任特性，来绕过上述需求（要求全网所有节点的一致性）；我们展示出事实上这些子网
@@ -103,6 +105,7 @@ PeerCoin
 力水平，或终端用户在网络中避免被欺骗所需的技术熟练程度。
 
 to be continued...
+```
 
 ## getaddrinfo failed in only-IPv6 network on iOS9
 
