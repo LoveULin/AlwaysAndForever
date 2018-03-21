@@ -1,6 +1,10 @@
 
 # about block-chain
 
+## ripple
+
+通过std::thread起了一个线程去处理与NTP服务器的交互
+
 ## SHAMap in ripple
 
 ### SHAMap 介绍
