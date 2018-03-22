@@ -2,7 +2,7 @@
 # about block-chain
 
 ## ripple
-
+```
 使用boost的program_options去解析命令行参数，然后在Config::loadFromString函数中去解析配置文件的每一个section和字段；
 ApplicationImp的setup函数是整个程序初始化资源的核心。首先设置job queue的线程数量，根据该数量会reuse或new出来新的worker（即thread）；接着将debug
 文件的输出级别调到kDebug或比它更低；然后如果是非standalone模式，则开始启动SNTPClinet模块。
@@ -10,6 +10,7 @@ ApplicationImp的setup函数是整个程序初始化资源的核心。首先设�
 SNTPClock.cpp中的resolveComplete()函数里有一个地方到了36年会溢出（"The following line of code will overflow at 2036-02-07 06:28:16 UTC
 due to the 32 bit cast."）;
 接着初始化sqlite的3个DB（tx, ledger, node），包括执行建表以及创建相关索引的语句；接着InitPathTable；然后即开始startGenesisLedger
+```
 
 ## SHAMap in ripple
 
