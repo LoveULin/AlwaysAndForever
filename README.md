@@ -1,15 +1,28 @@
 
 # about block-chain
 
+## 分布式MQ
+RabbitMQ
+RocketMQ
+ZeroMQ
+ActiveMQ
+Redis
+kafka/jafka
+
 ## ripple
 ```
+standalone模式会有可能使用临时的DB，
+
 使用boost的program_options去解析命令行参数，然后在Config::loadFromString函数中去解析配置文件的每一个section和字段；
 ApplicationImp的setup函数是整个程序初始化资源的核心。首先设置job queue的线程数量，根据该数量会reuse或new出来新的worker（即thread）；接着将debug
 文件的输出级别调到kDebug或比它更低；然后如果是非standalone模式，则开始启动SNTPClinet模块。
 在启动SNTPClient模块时通过std::thread起了一个线程去处理与NTP服务器的交互，也有一个定时器去周期性地发起与NTP服务器之间的通信；
 SNTPClock.cpp中的resolveComplete()函数里有一个地方到了36年会溢出（"The following line of code will overflow at 2036-02-07 06:28:16 UTC
 due to the 32 bit cast."）;
-接着初始化sqlite的3个DB（tx, ledger, node），包括执行建表以及创建相关索引的语句；接着InitPathTable；然后即开始startGenesisLedger
+接着初始化sqlite的3个DB（tx, ledger, wallet），包括执行建表以及创建相关索引的语句；接着InitPathTable；然后即开始startGenesisLedger；接着执行
+loadNodeIdentity加载本节点的pk，sk，优先通过配置文件里的node_seed来生成，其次尝试从walletDB中获取，都失败的话最后会尝试随机生成一对；接着建立信任
+的validators的结构，即validators_->load以及validatorSites_->load；接着根据配置文件中指定的node_size，设置内存中一些Cache的TargetSize和
+TargetAge；接着即开始创建overlay对象
 ```
 
 ## SHAMap in ripple
