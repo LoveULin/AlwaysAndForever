@@ -2,12 +2,12 @@
 # about block-chain
 
 ## 分布式MQ
-RabbitMQ
-RocketMQ
-ZeroMQ
-ActiveMQ
-Redis
-kafka/jafka
+- abbitMQ
+- RocketMQ
+- ZeroMQ
+- ActiveMQ
+- Redis
+- kafka/jafka
 
 ## ripple
 ```
