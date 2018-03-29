@@ -1,10 +1,18 @@
 
 # about block-chain
+  boost 1_66_0加入了boost::asio::threadpool
+  
 
 ## JobQueue
 - ETH：以derived class继承Worker类的方式，获得worker线程的能力，进而通过override doWork等虚函数实现自己所需的在worker线程中干活的逻辑；线程管理也较简单，直接使用std::thread，且仅在交易验证，区块验证，监听端口，处理连接，CPU挖矿以及Worker内部等场景使用；
 - BTC：有一个CScheduler类来实现JobQueue，但只起了一个线程去做，没有线程池，与脚本检查一样，使用boost的thread_group的create_thread创建线程；在执行某些参数的命令，HTTP server，UPnP，以及网络交互等场景时，直接使用std::thread；HTTP server使用了evhttp，以libevent做为event loop；与peer之间的网络通过原生接口处理(socket, connect, send, recv, listen, accept等)，没有I/O复用框架（每种网络行为起一个专门的线程去处理）
 - Ripple：使用JobQueue以及线程池Workers，具体请参考下图
+![Image]("https://github.com/LoveULin/AlwaysAndForever/blob/master/JobQueueOfRipple.png")
+
+## 参数or配置：
+- ETH: 使用boost::program_options解析命令行参数，config文件用JSON解析
+- BTC: 自己解析命令行参数，config文件使用boost::program_options解析
+- Ripple: 使用boost::program_options解析命令行参数，config文件自己解析
 
 ## 分布式MQ
 - abbitMQ
