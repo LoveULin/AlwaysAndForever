@@ -2,6 +2,11 @@
 # about block-chain
   boost 1_66_0加入了boost::asio::threadpool
   
+## Test
+- ETH: 使用boost UTF，编译成独立的bin--testeth
+- BTC: 使用boost UTF进行UT，python脚本进行ST
+- Ripple: 使用boost UTF，编译进ripple主程序中，使用ripple unittest的方式执行
+- EOS: 使用boost UTF
 
 ## JobQueue
 - ETH：以derived class继承Worker类的方式，获得worker线程的能力，进而通过override doWork等虚函数实现自己所需的在worker线程中干活的逻辑；线程管理也较简单，直接使用std::thread，且仅在交易验证，区块验证，监听端口，处理连接，CPU挖矿以及Worker内部等场景使用；
