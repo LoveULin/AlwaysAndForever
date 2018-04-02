@@ -1,7 +1,11 @@
 
 # about block-chain
-  boost 1_66_0加入了boost::asio::threadpool
-  
+  boost 1_66_0加入了boost::asio::threadpool (or thread_pool??)
+
+## 模块管理
+- Ripple: 模块继承Stoppable类之后可以通过add函数将其他模块添加为自己的子类, 并允许以此重复下去形成一课树, 从而实现将之间有关系的模块共同管理的需求(顺序prepare, start, stop等)
+- EOS: plugin模式, 各plugin编译为library, 同时继承自统一的基类, 实现之间关系扁平化的统一管理
+
 ## Test
 - ETH: 使用boost UTF，编译成独立的bin--testeth
 - BTC: 使用boost UTF进行UT，python脚本进行ST
