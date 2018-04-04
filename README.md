@@ -26,7 +26,7 @@
 - Ripple: 使用boost::program_options解析命令行参数，config文件自己解析
 
 ## 分布式MQ
-- abbitMQ
+- RabbitMQ
 - RocketMQ
 - ZeroMQ
 - ActiveMQ
