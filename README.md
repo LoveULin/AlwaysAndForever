@@ -70,50 +70,72 @@ SHAMap是一个Merkle tree(http://en.wikipedia.org/wiki/Merkle_tree)，
 1. 可变的SHAMap
 2. 不可变的SHAMap
 
-这两种方式的区别并不是那种经典的C++中的不可变意味着不改变的语义。一个不可变的SHAMap上的节点包含着不可变的节点。同时，一旦在一个不可变的SHAMap上找到
-了一个节点，那么在这个SHAMap的整个生命周期中该节点一定会被保持在该SHAMap上。所以，有些反直觉得，一个不可变的SHAMap可能由于新节点地加入而增长，但是一
-个不可变的SHAMap永远不会变小（直到它被销毁时完全消失）。一个节点一旦被加入进不可变SHAMap，也永远不会改变它在内存中的位置。所以不可变SHAMap中的节点可
-以使用原始指针来操作（如果你足够小心的话）。
+这两种方式的区别并不是那种经典C++中的不可变意味着不改变的语义。一个不可变的SHAMap包含着不可变的"节点"。并且，一旦在一个不可变的SHAMap上找到了一个节点，那么在这个SHAMap的整个生命周期中该节点一定会被保持在该SHAMap上。所以，有点反直觉的是，一个不可变的SHAMap可能由于新节点地加入而增长，但是一个不可变的SHAMap永远不会变小（直到它被销毁时完全消失）。一个节点一旦被加入进不可变的SHAMap，也永远不会改变它在内存中的位置。所以不可变SHAMap中的节点可以使用原始指针来操作（如果你足够小心的话）。
 
-这种设计的其中一个后果就是一个SHAMap永远不可能被“裁剪”。没有任何办法可以识别那些在SHAMap中不需要了的可以被移除的节点。一旦一个节点被加入了内存中的
-SHAMap，这个节点将在整个SHAMap的生命周期内始终保持在内存中。
+这种设计的其中一个后果就是一个SHAMap永远不可能被“裁剪”。没有任何办法可以识别那些在SHAMap中不需要了的可以被移除的节点。一旦一个节点被加入了内存中的SHAMap，这个节点将在整个SHAMap的整个生命周期内始终保持在内存中。
 
 大多数SHAMap是不可变的，它们不会修改或移除它们所包含的节点。
 
-一个需要可变SHAMap的例子是当我们希望向LCL去实施交易时。为此我们生成一个状态树的可变快照，然后开始将交易实施于它。由于快照时可变的，改变快照中的节点不
-会影响其他SHAMap中的节点。
+一个需要可变SHAMap的例子是当我们希望向LCL去实施交易时。为此我们生成一个状态树的可变快照，然后开始将交易实施于它。由于该快照是可变的，改变该快照中的节点不会影响其他SHAMap中的节点。
 
-一个使用不可变ledger的的例子是当有一个open的ledger时，一些代码想要去查询该ledger的状态。这时我们不想去改变SHAMap的状态，所以我们使用了一个不可变的
-快照。
+一个使用不可变ledger的的例子是当有一个open的ledger时，一些代码想要去查询该ledger的状态。这时我们不想去改变SHAMap的状态，所以我们使用了一个不可变的快照。
 
 ### SHAMap 创建
-一个SHAMap通常不是凭空创建的。一旦一个初始的SHAMap被构造了出来，之后的SHAMap通常基于初始SHAMap调用snapShot(bool isMutable)被创建出来。这个新创建出来的SHAMap基于传入的标记拥有着所需的特性（可变或不可变）。
+一个SHAMap通常不是凭空创建的。一旦一个初始的SHAMap被构造了出来，之后的SHAMap通常基于初始SHAMap调用snapShot(bool isMutable)被创建出来。这个新创建出来的SHAMap根据传入的标记以拥有着所需的特性（可变或不可变）。
+
+产生一个SHAMap的不可变的快照相对于产生一个可变的快照来说非常廉价. 如果一个SHAMap快照是可变的, 那么其中任何可能被修改的节点在它们被置于可变map之前必须被复制一份.
 
 ### SHAMap 线程安全性
+
+*这个描述是过时的, 需要重写*
+
+SHAMaps可以是线程安全的, 取决于它们是如何被使用的. SHAMap使用一个SyncUnorderedMap用于它的存储. SyncUnorderedMap有3个线程安全的方法:
+1. size()
+2. canonicalize()
+3. retrieve()
+
+只要SHAMap只使用这3个接口来操作它的存储(变量mTNByID代表Tree Node的ID), SHAMap就是线程安全的.
+
 ### 遍历一个SHAMap
+*我们需要一个关于为什么有时需要遍历一个SHAMap以及在代码中是如何工作的好的描述*
+
 ### 晚到达的节点
-就像我们之前提到的一样，SHAMap（即使时不可变的）可能会增长。如果一个SHAMap正在查询某个节点然后运行到了一个空点，那么SHAMap将查看该节点是否存在，或时
-还没有成为该map的一部分。这个操作是在SHAMap::fetchNodeExternalNT()函数中进行的。“NT”在这里表示不会抛出异常。
+就像我们之前提到的一样，SHAMap（即使是不可变的）可能会增长。如果一个SHAMap正在查询某个节点然后运行到了一个空点，那么SHAMap将查看该节点是否存在但还没有成为该map的一部分。这个操作是在SHAMap::fetchNodeExternalNT()函数中进行的。“NT”在这里表示不会抛出异常。
 
 函数fetchNodeExternalNT()会经历三个阶段：
-1. 通过调用getCache()来尝试找到TreeNodeCache中丢失节点的位置。TreeNodeCache是不可变的SHAMapTreeNodes的cache，不可变的SHAMapTreeNodes被所有
-SHAMap共享。
+1. 通过调用getCache()来尝试找到TreeNodeCache中丢失节点的位置。TreeNodeCache是不可变的SHAMapTreeNodes的cache，不可变的SHAMapTreeNodes被所有SHAMap共享。
 
-任何一个不可变的SHAMapTreeNode都有一个为0的序列号。当一个可变的SHAMap被创建出来时，它的SHAMapTreeNodes被给予了一个非0的序列号。所以断言
-assert (ret->getSeq() == 0)简单地确认了TreeNodeCache确实给了我们一个不可变的节点。
+任何一个不可变的SHAMapTreeNode都有一个为0的序列号。当一个可变的SHAMap被创建出来时，它的SHAMapTreeNodes被给予了一个非0的序列号。所以断言assert (ret->getSeq() == 0)简单地确认了TreeNodeCache确实给了我们一个不可变的节点。
 
 2. 如果这个节点不在TreeNodeCache中，我们尝试从数据库保存的历史数据中找到它。调用fetch(hash)为我们完成了这项工作。
 
 3. 最后，如果ledgerSeq_不为0，且我们没有在历史数据中找到该节点，我们会调用一个MissingNodeHandler。
+   非0的ledgerSeq_表示这个SHAMap是一个属于某个指定（非0）序列号的历史ledger的完整map。所以，如果所有预期的数据都总是存在，MissingNodeHandler永远不应该被执行。
+   并且，由于我们知道这个SHAMap并不能完全表示该ledger中的全部数据，我们将该SHAMap的序列号置为0。
 
-非0的ledgerSeq_表示这个SHAMap是一个属于某个指定（非0）序列号的历史ledger的完整map。所以，如果所有预期的数据都始终存在，MissingNodeHandler永远不应
-该被执行。
+如果阶段1返回了节点，那么我们就已经知道了这个节点是不可变的。然而如果任何一个阶段2执行成功，我们就需要将返回的节点转变为一个不可变的节点。这通过在try块中调用make_shared<SHAMapTreeNode>来实现。这些代码写在了try块里是因为fetchNodeExternalNT方法承诺了不会抛出异常。我们不想由于make_shared调用构造函数时抛出异常而破坏我们的承诺。  
 
-同时，由于我们知道这个SHAMap并不能完全表示该ledger中的数据，我们将该SHAMap的序列号置为0。
+### 规范化
+调用canonicalize()可以确保所关注的节点是否已经在SHAMap上了, 这时我们会返回已经存在了的那个节点--我们永远不会替换掉一个早已经存在的节点. 通过使用canonicalize()我们管理了一个线程竞态条件, 即两个不同的线程可能同时认识到某个SHAMapTreeNode的缺失. 如果它们都尝试插入节点, 那么canonicalize()确保了第一个节点获胜, 并且稍慢的线程会收到更快的那个线程插入的节点的指针.
 
-如果阶段1返回了节点，那么我们就已经知道了这个节点是不可变的。然而如果任何一个阶段2执行成功，我们需要将返回的节点转变为一个不可变的节点。这通过在try块
-中调用make_shared<SHAMapTreeNode>来实现。这些代码写在了try块里是因为fetchNodeExternalNT方法承诺了不会抛出异常。我们不想由于make_shared调用构造函
-数时抛出异常而破坏我们的承诺。
+现在SHAMap关于canonicalize()的考虑的设计有一个问题. 两个不同的tree可以拥有两个完全一样(相同的hash值)但ID不同的节点. 如果TreeNodeCache返回了一个有着相同hash但不同ID的节点, 那么我们假设传入节点的ID比TreeNodeCache中的旧的ID更好. 因此我们通过复制我们在TreeNodeCache中找到的(hash)构造一个新的SHAMapTreeNode, 但我们给予这个新的节点一个新的ID. 接着我们将TreeNodeCache中的SHAMapTreeNode替换位这个新构造的节点.
+
+TreeNodeCache不受任何节点都必须永远常驻在内存的规则约束. 所以将旧节点替换为新节点是可以的.
+
+SHAMap::getCache()方法表现出相同的行为.
+
+### SHAMap 改进
+这是一个比较简单的: 成员SHAMapTreeNode::mAccessSeq现在已经不使用了并且可以被移除.
+
+这是一个更重要的改变. tree的结构现在是嵌入了SHAMapTreeNodes自己里. 这其实并不是必须的, 并且应该被修正.
+
+当我们遍历tree时(比如说像SHAMap::walkTo()), 我们现在要求每个节点提供我们可以在本地确定的信息. 我们知道深度因为我们知道我们走过了多少个节点. 我们知道我们需要的ID, 因为我们就是依靠它来遍历的. 所以我们不需要在节点中存储ID. 下一个重构应该移除所有对SHAMapTreeNode::GetID()的调用.
+
+接着我们可以移除SHAMapTreeNode中的NodeID成员.
+
+接着我们可以将SHAMap::mTNBtID成员改为mTNByHash.
+
+一个额外的可能的重构是创建一个基本类型SHAMapTreeNode, 它继承于InnerNode和LeafNode类型. 这将移除掉LeafNodes中的一些存储(16hashes的数组). 这个重构也对简化isLeaf()和hasItem()这样的方法有效果.
 
 ## tokens
 ```
