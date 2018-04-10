@@ -1,8 +1,44 @@
 
 # about block-chain
-  boost 1_66_0加入了boost::asio::threadpool (or thread_pool??)
+  - boost 1_66_0加入了boost::asio::threadpool (or thread_pool??)
+  - boost 1_64_0加入了boost::beast
 
   Ripple: sync filter有好几种, 分别连接着DB或NodeCache
+
+## MerkleTree
+- Ripple: SHAMapNodeID中mNodeID(uint256)是root到当前节点的branch路径, 32个字节, 每个字节表示两层, 最多表示64层(从0层开始到63层), 低4位表示奇数层, 高4位表示偶数层, 4位正好能表示16个数字即16个branch
+
+- BTC:
+```
+  1. uint32的index每一位0或1表示左右子树, 因此树的深度最多是32; 
+  2. 叶子节点的height是0, 上升过程中值依次增加; 
+  3. merkle.cpp是merkle树的核心, merkleblock.cpp只是一个有部分merkle树的MerkleBlock, 依据规则(如bloom filter)将信息转发给其他节点; 
+  4. ComputeMerkleRootFromBranch: 已知一个叶子节点和到root的整条路径的hash, 计算root hash
+  5. ComputeMerkleRoot: 已知所有叶子节点, 计算root hash
+  6. tx的结构: std::vector<std::shared_ptr<const CTransaction>>, std::vector<uint256>
+  7. MerkleComputation()中uint256 inner[32]的说明: inner is an array of eagerly computed subtree hashes, indexed by tree level (0 being the leaves). For example, when count is 25 (11001 in binary), inner[4] is the hash of the first 16 leaves, inner[3] of the next 8 leaves, and inner[0] equal to the last leaf. The other inner entries are undefined. (可参考下图)
+```
+![Image](MerkleComputationOfBTC.png)
+
+- ETH: 
+```
+  1. 它的memory trie也是一个base-16的radix tree(与ripple一样), 但在它之上又做了一些修改, 称之为trie, 即单词查找树; 通过asNibbles将每个字节拆成余数和商的部分(均在0-15之间), 作为key; 
+  2. newBranch时, 设k1和k2的共同前缀长度是p-1, 如果p等于k1.size()那么以v1作为m_value, k2[p+1]作为m_nodes下标, 以k2[p+2]和v2构造新的叶子节点; 否则如果p等于k2.size()那么以v2作为m_value, k1[p+1]作为m_nodes下标, 以k1[p+2]和v1构造新的叶子节点; 否则分别以k1[p+1], k2[p+1]作为m_nodes下标, v1, v2构造新的叶子节点; 最后如果p不等于0, 以共同前缀作为key, 刚刚new出来的BranchNode为m_next构造InfixNode并返回; 否则直接返回BranchNode;
+  3 InfixNode的m_next只可能是BranchNode或它自己; LeafNode也可以没有key;
+  4. TrieDB: 以DB(但可能是MemoryDB)作为backend的trie, 数据都是以RLP方式编码实现的Trie(需要再看一下代码);
+  5. OverlayDB(derived from MemoryDB)是连接真正backend DB的桥梁
+  6. tx的结构: std::vector<Transaction>, std::unordered_set<h256>
+
+  memory trie:
+  1. 插入:
+    - LeafNode 覆盖或newBranch
+    - InfixNode 如果当前节点是key的前缀, 以key的前缀后的部分作为可以, 和value一起调用m_next的insert; 否则先计算共同前缀的长度, 如果不为0的话, 删掉当前节点的共同前缀, 然后再new一个以共同前缀为m_ext, 以以共同前缀后的部分和value一起insert返回的节点为m_next的InfixNode; 如果共同前缀长度为0, 再将m_ext拆为第一个字节和后面的部分, 以第一个字节new一个BranchNode, 然后插入其中
+    - BranchNode m_value可以存没有key的value; 如果m_nodes[key[0]]没有, 那么直接new一个以key[1]之后为key和value一起的LeafNode; 如果有, 调用它的insert函数(类似于一开始root节点相关的处理)
+  2. 删除:
+    - LeafNode 直接删
+    - InfixNode 先尝试删前缀部分的节点(调用m_next的remove), 删完之后返回的节点如果不为nullptr应该肯定就是TrieExtNode的子类(即不是BranchNode), 如果不是的话这个InfixNode也没有意义了, 直接删掉,否则merge with child
+    - BranchNode 如果没有key, 可以直接清掉m_value, 否则如果有m_nodes[key[0]], 直接调用它的remove函数; 这两种情况下均需要调用rejig()
+```
 
 ## 模块管理
 - Ripple: 模块继承Stoppable类之后可以通过add函数将其他模块添加为自己的子类(子类也继承于Stoppable), 并允许以此重复下去形成一课树, 从而实现将之间有关系的模块共同管理的需求(按先父类后子类的顺序prepare, start, stop等)
@@ -53,7 +89,7 @@ overflow at 2036-02-07 06:28:16 UTC due to the 32 bit cast."）;
 10. 接着即开始创建overlay对象
 
 ## SHAMap in ripple
-
+(以下为源码中shamap目录下README.md文件的翻译)
 ### SHAMap 介绍
 SHAMap是一个Merkle tree(http://en.wikipedia.org/wiki/Merkle_tree)，
 也是一个最多16个子节点的radix tree(http://en.wikipedia.org/wiki/Radix_tree).
@@ -116,9 +152,9 @@ SHAMaps可以是线程安全的, 取决于它们是如何被使用的. SHAMap使
 如果阶段1返回了节点，那么我们就已经知道了这个节点是不可变的。然而如果任何一个阶段2执行成功，我们就需要将返回的节点转变为一个不可变的节点。这通过在try块中调用make_shared<SHAMapTreeNode>来实现。这些代码写在了try块里是因为fetchNodeExternalNT方法承诺了不会抛出异常。我们不想由于make_shared调用构造函数时抛出异常而破坏我们的承诺。  
 
 ### 规范化
-调用canonicalize()可以确保所关注的节点是否已经在SHAMap上了, 这时我们会返回已经存在了的那个节点--我们永远不会替换掉一个早已经存在的节点. 通过使用canonicalize()我们管理了一个线程竞态条件, 即两个不同的线程可能同时认识到某个SHAMapTreeNode的缺失. 如果它们都尝试插入节点, 那么canonicalize()确保了第一个节点获胜, 并且稍慢的线程会收到更快的那个线程插入的节点的指针.
+调用canonicalize()可以确保所关注的节点是否已经在SHAMap上了, 这时我们会返回已经存在了的那个节点--我们永远不会替换掉一个早已经存在的节点. 通过使用canonicalize()我们管理了一个线程竞态条件, 即两个不同的线程可能同时认识到某个SHAMapTreeNode的缺失. 如果它们都尝试插入节点, 那么canonicalize()确保了第一个节点将获胜, 并且稍慢的线程会收到更快的那个线程插入的节点的指针.
 
-现在SHAMap关于canonicalize()的考虑的设计有一个问题. 两个不同的tree可以拥有两个完全一样(相同的hash值)但ID不同的节点. 如果TreeNodeCache返回了一个有着相同hash但不同ID的节点, 那么我们假设传入节点的ID比TreeNodeCache中的旧的ID更好. 因此我们通过复制我们在TreeNodeCache中找到的(hash)构造一个新的SHAMapTreeNode, 但我们给予这个新的节点一个新的ID. 接着我们将TreeNodeCache中的SHAMapTreeNode替换位这个新构造的节点.
+现在SHAMap关于canonicalize()所考虑的事情的设计有一个问题. 两个不同的tree可以拥有两个完全一样(相同的hash值)但ID不同的节点. 如果TreeNodeCache返回了一个有着相同hash但不同ID的节点, 那么我们假设传入节点的ID比TreeNodeCache中的旧的ID更好. 因此我们通过复制我们在TreeNodeCache中找到的(hash)构造一个新的SHAMapTreeNode, 但我们给予这个新的节点一个新的ID. 接着我们将TreeNodeCache中的SHAMapTreeNode替换为这个新构造的节点.
 
 TreeNodeCache不受任何节点都必须永远常驻在内存的规则约束. 所以将旧节点替换为新节点是可以的.
 
@@ -127,7 +163,7 @@ SHAMap::getCache()方法表现出相同的行为.
 ### SHAMap 改进
 这是一个比较简单的: 成员SHAMapTreeNode::mAccessSeq现在已经不使用了并且可以被移除.
 
-这是一个更重要的改变. tree的结构现在是嵌入了SHAMapTreeNodes自己里. 这其实并不是必须的, 并且应该被修正.
+这是一个更重要的改变. tree的结构现在是嵌入了SHAMapTreeNodes自己里面. 这其实并不是必须的, 并且应该被修正.
 
 当我们遍历tree时(比如说像SHAMap::walkTo()), 我们现在要求每个节点提供我们可以在本地确定的信息. 我们知道深度因为我们知道我们走过了多少个节点. 我们知道我们需要的ID, 因为我们就是依靠它来遍历的. 所以我们不需要在节点中存储ID. 下一个重构应该移除所有对SHAMapTreeNode::GetID()的调用.
 
