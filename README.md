@@ -6,7 +6,19 @@
   Ripple: sync filter有好几种, 分别连接着DB或NodeCache
 
 ## MerkleTree
-- Ripple: SHAMapNodeID中mNodeID(uint256)是root到当前节点的branch路径, 32个字节, 每个字节表示两层, 最多表示64层(从0层开始到63层), 低4位表示奇数层, 高4位表示偶数层, 4位正好能表示16个数字即16个branch
+- Ripple:
+```
+  1. SHAMapNodeID中mNodeID(uint256)是root到当前节点的branch路径, 32个字节, 每个字节表示两层, 最多表示64层(从0层开始到63层), 高4位表示奇数层, 低4位表示偶数层, 4位正好能表示16个数字即16个branch; 所以mDepth/2对应于一个字节, 其中高4位对应奇数层, 低4位对应偶数层; 
+  2. InnerNode的branch不能是InnerNodeV2
+  3. InnerNodeV2类似于ETH的InfixNode, 存了一个branch的共同前缀, 然后以后面的部分作为branch的key; InnerNode没有这个概念直接以0-15的数字为key存储branch
+  4. backend是连接后端DB的, kv DataBase只是一层封装, 同时含有Cache, DataBaseNode即为NodeStore
+  5. pCache_: positive cache, 真正的缓存
+  6. nCache_: negative cache, 哪些key我们没有
+  7. DataBaseNodeImp是普通DB; DataBaseRotate会创建两个DB, 可以像日志一样做rotate(专门起了一个线程); DataBaseShard将Ledger存到磁盘上方便归档和传递, 每个Shard会存固定数量的Ledger; 每种DB都有pCache, nCache缓存, 也都有backend可以连接后端DB
+  8. backend目前支持MemoryDB, NuDB, RocksDB以及NullDB
+  9. NodeObject的类型有: Ledger, account以及tx; SHAMap的Node类型有: inner, tx_nm, tx_md, account(没有Ledger)
+  10. NodeStoreScheduler可以通过addJob的方式将batchWrite异步完成
+```
 
 - BTC:
 ```
@@ -24,7 +36,7 @@
 ```
   1. 它的memory trie也是一个base-16的radix tree(与ripple一样), 但在它之上又做了一些修改, 称之为trie, 即单词查找树; 通过asNibbles将每个字节拆成余数和商的部分(均在0-15之间), 作为key; 
   2. newBranch时, 设k1和k2的共同前缀长度是p-1, 如果p等于k1.size()那么以v1作为m_value, k2[p+1]作为m_nodes下标, 以k2[p+2]和v2构造新的叶子节点; 否则如果p等于k2.size()那么以v2作为m_value, k1[p+1]作为m_nodes下标, 以k1[p+2]和v1构造新的叶子节点; 否则分别以k1[p+1], k2[p+1]作为m_nodes下标, v1, v2构造新的叶子节点; 最后如果p不等于0, 以共同前缀作为key, 刚刚new出来的BranchNode为m_next构造InfixNode并返回; 否则直接返回BranchNode;
-  3 InfixNode的m_next只可能是BranchNode或它自己; LeafNode也可以没有key;
+  3. InfixNode的m_next只可能是BranchNode或它自己; LeafNode也可以没有key;
   4. TrieDB: 以DB(但可能是MemoryDB)作为backend的trie, 数据都是以RLP方式编码实现的Trie(需要再看一下代码);
   5. OverlayDB(derived from MemoryDB)是连接真正backend DB的桥梁
   6. tx的结构: std::vector<Transaction>, std::unordered_set<h256>
