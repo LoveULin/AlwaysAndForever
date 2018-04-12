@@ -8,8 +8,8 @@
 ## MerkleTree
 - Ripple:
 ```
-  1. SHAMapNodeID中mNodeID(uint256)是root到当前节点的branch路径, 32个字节, 每个字节表示两层, 最多表示64层(从0层开始到63层), 高4位表示奇数层, 低4位表示偶数层, 4位正好能表示16个数字即16个branch; 所以mDepth/2对应于一个字节, 其中高4位对应奇数层, 低4位对应偶数层; 
-  2. InnerNode的branch不能是InnerNodeV2
+  1. SHAMapNodeID中mNodeID(uint256)是root到当前节点的branch路径, 32个字节, 每个字节表示两层, 最多表示64层(从0层开始到63层), 高4位表示奇数层, 低4位表示偶数层, 4位正好能表示16个数字即16个branch; 所以mDepth/2对应于一个字节, 其中高4位对应奇数层, 低4位对应偶数层; 这些mNodeID是根据叶子节点的data的hash而来的
+  2. 一棵树上的节点要么全是InnerNode, 要么全是InnerNodeV2
   3. InnerNodeV2类似于ETH的InfixNode, 存了一个branch的共同前缀, 然后以后面的部分作为branch的key; InnerNode没有这个概念直接以0-15的数字为key存储branch
   4. backend是连接后端DB的, kv DataBase只是一层封装, 同时含有Cache, DataBaseNode即为NodeStore
   5. pCache_: positive cache, 真正的缓存
@@ -40,6 +40,8 @@
   4. TrieDB: 以DB(但可能是MemoryDB)作为backend的trie, 数据都是以RLP方式编码实现的Trie(需要再看一下代码);
   5. OverlayDB(derived from MemoryDB)是连接真正backend DB的桥梁
   6. tx的结构: std::vector<Transaction>, std::unordered_set<h256>
+  
+  7. 一个RLP就是一个节点, 是否是叶子节点在内部有标志位表示, 而不是单独定义一个class(像ripple一样); 一个RLP只要非空, itemCount只可能有两种: 2和17. 2是叶子节点, 17是中间节点
 
   memory trie:
   1. 插入:
