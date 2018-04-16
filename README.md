@@ -1,9 +1,17 @@
 
 # about block-chain
+
   - boost 1_66_0加入了boost::asio::threadpool (or thread_pool??)
   - boost 1_64_0加入了boost::beast
 
-  Ripple: sync filter有好几种, 分别连接着DB或NodeCache
+  - Ripple的sync filter有好几种, 分别连接着DB或NodeCache
+  
+```
+  - HyperLedger的MQ是kafka(+zookeeper)
+  - ETH: EthereumHost包含一个EthereumPeerObserverFace, 处理peer发来的tx, 然后塞到Client下的TransactionQueue里进行后续处理
+  - Ripple: 类似结构是TxQ, 从NodeStore或SHAMap中将信息读取出来发给Peer
+  - BTC: 类似结构是QueuedBlock, 而且是从磁盘里将block信息读取出来然后发给peer的; 还有一个CTxMemPool, 应该是为了UTXO的关联而做的
+```
 
 ## MerkleTree
 - Ripple:
@@ -24,7 +32,7 @@
 ```
   1. uint32的index每一位0或1表示左右子树, 因此树的深度最多是32; 
   2. 叶子节点的height是0, 上升过程中值依次增加; 
-  3. merkle.cpp是merkle树的核心, merkleblock.cpp只是一个有部分merkle树的MerkleBlock, 依据规则(如bloom filter)将信息转发给其他节点; 
+  3. merkle.cpp是merkle树的核心, merkleblock.cpp只是一个有部分节点的merkle tree(二叉树), 依据规则(如bloom filter)将对方感兴趣的交易信息转发给其他节点或是响应JSONRPC消息; 
   4. ComputeMerkleRootFromBranch: 已知一个叶子节点和到root的整条路径的hash, 计算root hash
   5. ComputeMerkleRoot: 已知所有叶子节点, 计算root hash
   6. tx的结构: std::vector<std::shared_ptr<const CTransaction>>, std::vector<uint256>
@@ -40,8 +48,7 @@
   4. TrieDB: 以DB(但可能是MemoryDB)作为backend的trie, 数据都是以RLP方式编码实现的Trie(需要再看一下代码);
   5. OverlayDB(derived from MemoryDB)是连接真正backend DB的桥梁
   6. tx的结构: std::vector<Transaction>, std::unordered_set<h256>
-  
-  7. 一个RLP就是一个节点, 是否是叶子节点在内部有标志位表示, 而不是单独定义一个class(像ripple一样); 一个RLP只要非空, itemCount只可能有两种: 2和17. 2是叶子节点, 17是中间节点
+  7. 一个RLP就是一个节点, 是否是叶子节点在内部有标志位表示, 而不是单独定义一个class(像ripple一样); 一个RLP只要非空, itemCount只可能有两种: 2和17. 2是叶子节点, 17是中间节点, 所以它的中间节点之间是16个branch, 最后与叶子节点的连接只有2个branch
 
   memory trie:
   1. 插入:
