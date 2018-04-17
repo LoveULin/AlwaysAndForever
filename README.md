@@ -5,11 +5,11 @@
   - boost 1_64_0加入了boost::beast
 
   - Ripple的sync filter有好几种, 分别连接着DB或NodeCache
-  
+  - ETH的state以SecureTrieDB<Address, OverlayDB>维护, 主要操作即为增删改查
 ```
   - HyperLedger的MQ是kafka(+zookeeper)
   - ETH: EthereumHost包含一个EthereumPeerObserverFace, 处理peer发来的tx, 然后塞到Client下的TransactionQueue里进行后续处理
-  - Ripple: 类似结构是TxQ, 从NodeStore或SHAMap中将信息读取出来发给Peer
+  - Ripple: 类似结构是InboundLedger, 从NodeStore或SHAMap中将信息读取出来发给Peer; TxQ是处理和Account, Fee相关的内容
   - BTC: 类似结构是QueuedBlock, 而且是从磁盘里将block信息读取出来然后发给peer的; 还有一个CTxMemPool, 应该是为了UTXO的关联而做的
 ```
 
