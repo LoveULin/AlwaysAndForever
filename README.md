@@ -4,14 +4,23 @@
   - boost 1_66_0加入了boost::asio::threadpool (or thread_pool??)
   - boost 1_64_0加入了boost::beast
 
+```
   - Ripple的sync filter有好几种, 分别连接着DB或NodeCache
   - ETH的state以SecureTrieDB<Address, OverlayDB>维护, 主要操作即为增删改查
-```
   - HyperLedger的MQ是kafka(+zookeeper)
   - ETH: EthereumHost包含一个EthereumPeerObserverFace, 处理peer发来的tx, 然后塞到Client下的TransactionQueue里进行后续处理
   - Ripple: 类似结构是InboundLedger, 从NodeStore或SHAMap中将信息读取出来发给Peer; TxQ是处理和Account, Fee相关的内容
-  - BTC: 类似结构是QueuedBlock, 而且是从磁盘里将block信息读取出来然后发给peer的; 还有一个CTxMemPool, 应该是为了UTXO的关联而做的
+  - BTC: 类似结构是QueuedBlock, 而且是从磁盘里将block信息读取出来然后发给peer的; 还有一个CTxMemPool, 应该是为了UTXO的关联而做的, 它使用多索引容器indexed_transaction_set来保存tx相关信息, net_processing.cpp
 ```
+
+## InnerNode vs InnerNodeV2 in Ripple
+![Image](InnerNodeVSInnerNodeV2InRipple.png)
+
+InnerNodeV2与ETH中的MemTrie应该是类似的实现(ETH中的TrieDB还没具体看, 它又和RLP揉在了一起略微有些复杂), 能够对中间节点进行最大限度地压缩, 最大限度降低大量中间节点对空间的占用, 付出的代价仅仅是增加了一个common_字段来表示其所有子节点的共同前缀
+
+注意: InnerNode在某个branch只有一个叶子节点时, 也可以将其路径上多余的非叶子节点省去, 但对于大于一个叶子节点的情况, 则无法再进行压缩; SHAMap.h中也提到了该特性: 
+
+`2. A node with only one child is merged with that child(the "merge property")`
 
 ## MerkleTree
 - Ripple:
