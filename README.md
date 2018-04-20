@@ -3,7 +3,9 @@
 
   - boost 1_66_0加入了boost::asio::threadpool (or thread_pool??)
   - boost 1_64_0加入了boost::beast
-
+  - fc means Fast-Compiling
+  - ripple还有FullBelowCache, TreeNodeCache...TreeNodeCache是SHAMap最前边的缓存, 接下来才是NodeStore里的那些(PCache+DB, 这些都算作backend) 然后还有TransactionMaster...
+  
 ```
   - Ripple的sync filter有好几种, 分别连接着DB或NodeCache
   - ETH的state以SecureTrieDB<Address, OverlayDB>维护, 主要操作即为增删改查
@@ -11,6 +13,7 @@
   - ETH: EthereumHost包含一个EthereumPeerObserverFace, 处理peer发来的tx, 然后塞到Client下的TransactionQueue里进行后续处理
   - Ripple: 类似结构是InboundLedger, 从NodeStore或SHAMap中将信息读取出来发给Peer; TxQ是处理和Account, Fee相关的内容
   - BTC: 类似结构是QueuedBlock, 而且是从磁盘里将block信息读取出来然后发给peer的; 还有一个CTxMemPool, 应该是为了UTXO的关联而做的, 它使用多索引容器indexed_transaction_set来保存tx相关信息, net_processing.cpp
+  - BTS: boost::multi_index_container作为在内存里存储block的容器, 磁盘上会使用两个文件来存储block, 一个文件存储block id, size, pos, 另一个文件在pos位置存储size大小的block; 使用fc::signal实现了进程内的消息注册-订阅模型; 和Peer同步时, 是把自己有的block id给发过去, 而不是发没有的; 
 ```
 
 ## InnerNode vs InnerNodeV2 in Ripple
